@@ -47,6 +47,7 @@ struct memcached_s
   char *socket;
   char *host;
   char *port;
+  char *alias;
 };
 typedef struct memcached_s memcached_t;
 
@@ -61,6 +62,7 @@ static void memcached_free (memcached_t *st)
   sfree (st->socket);
   sfree (st->host);
   sfree (st->port);
+  sfree (st->alias);
   sfree (st);
 }
 
@@ -254,10 +256,19 @@ static void memcached_init_vl (value_list_t *vl, memcached_t const *st)
     if (st->socket != NULL)
       sstrncpy (vl->host, hostname_g, sizeof (vl->host));
     else
-      sstrncpy (vl->host,
+    {
+      if (st->alias != NULL)
+      {
+         sstrncpy (vl->host, st->alias, sizeof (vl->host));
+      }
+      else
+      {
+        sstrncpy (vl->host,
           (st->host != NULL) ? st->host : MEMCACHED_DEF_HOST,
           sizeof (vl->host));
-    sstrncpy (vl->plugin_instance, st->name, sizeof (vl->plugin_instance));
+      }
+      sstrncpy (vl->plugin_instance, st->name, sizeof (vl->plugin_instance));
+    }
   }
 }
 
@@ -597,6 +608,7 @@ static int config_add_instance(oconfig_item_t *ci)
   st->socket = NULL;
   st->host = NULL;
   st->port = NULL;
+  st->alias = NULL;
 
   if (strcasecmp (ci->key, "Plugin") == 0) /* default instance */
     st->name = sstrdup ("__legacy__");
@@ -619,6 +631,8 @@ static int config_add_instance(oconfig_item_t *ci)
       status = cf_util_get_string (child, &st->host);
     else if (strcasecmp ("Port", child->key) == 0)
       status = cf_util_get_service (child, &st->port);
+    else if (strcasecmp("Alias", child->key) == 0)
+      status = cf_util_get_service(child, &st->alias);
     else
     {
       WARNING ("memcached plugin: Option `%s' not allowed here.",
@@ -690,6 +704,7 @@ static int memcached_init (void)
   st->socket = NULL;
   st->host = NULL;
   st->port = NULL;
+  st->alias = NULL;
 
   status = memcached_add_read_callback (st);
   if (status == 0)
